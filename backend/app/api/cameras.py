@@ -12,7 +12,7 @@ from sqlmodel import Session
 
 from ..config import settings, slugify, local_now
 from ..db import get_session
-from ..models import Camera, iso_utc
+from ..models import Camera, Event, iso_utc
 from ..security import require_auth
 from ..services import ffmpeg as ff
 from ..services import onvif
@@ -138,14 +138,30 @@ async def delete_camera(cam_id: int, delete_recordings: bool = False,
     if not cam:
         raise HTTPException(404, "Không tìm thấy camera")
     slug = cam.slug
+    # Event tham chiếu camera qua FK (PRAGMA foreign_keys=ON) —
+    # phải xoá event của camera trước, nếu không DELETE camera bị IntegrityError
+    snapshots = [
+        s for (s,) in session.query(Event.snapshot)
+        .where(Event.camera_id == cam_id).all() if s
+    ]
+    session.query(Event).where(Event.camera_id == cam_id).delete()
     session.delete(cam)
     session.commit()
     detection_manager.stop_camera(cam_id)
     await recording_manager.stop_camera(cam_id)
     if delete_recordings:
         await asyncio.to_thread(recording_manager.delete_camera_files, slug)
+    await asyncio.to_thread(_purge_event_snapshots, snapshots)
     await go2rtc.sync_cameras()
     return {"ok": True}
+
+
+def _purge_event_snapshots(rels: list[str]) -> None:
+    for rel in rels:
+        try:
+            (settings.storage_dir / rel).unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 @router.post("/test")
