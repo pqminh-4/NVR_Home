@@ -183,9 +183,16 @@ async def camera_snapshot(cam_id: int, session: Session = Depends(get_session)):
     if not cam:
         raise HTTPException(404, "Không tìm thấy camera")
     path = settings.storage_dir / "snapshots" / f"live_{cam.slug}_{local_now().strftime('%Y%m%d_%H%M%S')}.jpg"
-    ok = await ff.snapshot(cam.url_main, path)
-    if not ok:
-        raise HTTPException(502, f"Không chụp được ảnh từ camera: {cam.last_error or 'kiểm tra kết nối'}")
+    # Ưu tiên lấy frame qua go2rtc — không mở thêm phiên RTSP vào camera
+    # (camera Ezviz và nhiều hãng giới hạn số phiên đồng thời)
+    data = None if ff.is_demo(cam.url_main) else await go2rtc.fetch_frame(cam.slug)
+    if data:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    else:
+        ok = await ff.snapshot(cam.url_main, path)
+        if not ok:
+            raise HTTPException(502, f"Không chụp được ảnh từ camera: {cam.last_error or 'kiểm tra kết nối'}")
     return FileResponse(path, media_type="image/jpeg",
                         headers={"Cache-Control": "no-store"})
 

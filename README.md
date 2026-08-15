@@ -67,7 +67,7 @@ Ví dụ URL phổ biến (thay user/pass/IP):
 | Hikvision | `rtsp://u:p@IP:554/Streaming/Channels/101` | `.../Channels/102` |
 | Dahua | `rtsp://u:p@IP:554/cam/realmonitor?channel=1&subtype=0` | `subtype=1` |
 | Tapo/TP-Link | `rtsp://u:p@IP:554/stream1` | `stream2` |
-| Ezviz | `rtsp://u:p@IP:554/h264_stream` (bật EZVIZ RTSP trong app) | — |
+| Ezviz | `rtsp://admin:mã-xs@IP:554/ch1/main` hoặc `/h264_stream1` (bật RTSP trong app Ezviz; mật khẩu = mã xác thực in hoa trên nhãn camera) | `/h264_stream2` |
 
 Khuyến nghị: điền cả **sub stream** (640×360) — AI dùng sub nên CPU nhẹ hơn nhiều.
 Cấu hình khởi tạo ban đầu cũng có thể đặt trong `config/cameras.yml` (chỉ đọc khi DB trống).
@@ -127,6 +127,14 @@ storage/                db + recordings + snapshots + models (không commit)
 
 - **Live "Đang kết nối"**: kiểm tra go2rtc (`http://NAS:1984`), camera RTSP có
   đúng không; trình duyệt cần hỗ trợ MSE (Chrome/Edge/Safari/Firefox đều OK).
+- **Test camera báo "không có track video"**: kết nối tới camera **đã thành công** —
+  vấn đề là đường dẫn RTSP sai cho model đó (xem bảng trên). Camera Ezviz phải bật
+  RTSP trong app Ezviz (LAN Live View → Local Service Settings) và dùng **mã xác thực
+  in hoa trên nhãn camera** làm mật khẩu, user `admin`.
+- **Camera ở VLAN/dải mạng khác**: app không lọc IP — chỉ cần router định tuyến giữa
+  các VLAN và cho phép TCP 554. Phân biệt qua lỗi Test: `timeout` = mạng/firewall,
+  `401` = sai mật khẩu, "không có track video" = sai đường dẫn (xem
+  [docs/deploy-ubuntu.md](docs/deploy-ubuntu.md) mục 8).
 - **CPU cao**: giảm `detect_fps` (1–2), dùng sub stream, giảm số camera detect.
 - **Không có sự kiện AI**: model YOLO tải lần đầu cần internet; kiểm tra
   `docker logs nvr-home | grep yolo`. Có thể đặt tay file `.onnx` vào

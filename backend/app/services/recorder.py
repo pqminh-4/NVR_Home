@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import re
 from datetime import datetime, timedelta
@@ -20,6 +21,14 @@ logger = logging.getLogger("nvr.recorder")
 _SEG_RE = re.compile(r"^(\d{2})-(\d{2})-(\d{2})(?:_ev)?\.mp4$")
 
 
+def _kill_proc(proc: asyncio.subprocess.Process) -> None:
+    """Chắc chắn tiến trình con chết — ffmpeg sống sót sẽ giữ phiên RTSP của camera
+    (camera Ezviz/Hikvision giới hạn số phiên, phiên thừa gây SETUP 500)."""
+    if proc.returncode is None:
+        with contextlib.suppress(ProcessLookupError, OSError):
+            proc.kill()
+
+
 def recordings_dir() -> Path:
     return settings.storage_dir / "recordings"
 
@@ -31,6 +40,7 @@ class CameraRecorder:
         self.cam = cam
         self._task: asyncio.Task | None = None
         self._clip_task: asyncio.Task | None = None
+        self._proc: asyncio.subprocess.Process | None = None
         self._stopping = False
 
     # ---------- continuous ----------
@@ -63,15 +73,23 @@ class CameraRecorder:
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.PIPE,
             )
+            self._proc = proc
             logger.info("[%s] ffmpeg ghi hình bắt đầu (pid %s)", self.cam.slug, proc.pid)
             assert proc.stderr is not None
             err_tail: list[bytes] = []
-            while True:
-                line = await proc.stderr.readline()
-                if not line:
-                    break
-                err_tail = (err_tail + [line])[-8:]
-            code = await proc.wait()
+            try:
+                while True:
+                    line = await proc.stderr.readline()
+                    if not line:
+                        break
+                    err_tail = (err_tail + [line])[-8:]
+                code = await proc.wait()
+            finally:
+                # mọi đường thoát (kể cả task bị cancel khi reload camera)
+                # đều phải dọn ffmpeg con
+                _kill_proc(proc)
+                with contextlib.suppress(Exception):
+                    await proc.wait()
             if self._stopping:
                 break
             err = b"\n".join(err_tail).decode(errors="replace")[-500:]
@@ -117,6 +135,7 @@ class CameraRecorder:
             "-movflags", "+faststart",
             str(out_dir / name),
         ]
+        proc: asyncio.subprocess.Process | None = None
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -125,9 +144,14 @@ class CameraRecorder:
             )
             await asyncio.wait_for(proc.wait(), timeout=seconds + 60)
         except asyncio.TimeoutError:
-            proc.kill()
+            pass
         except Exception as exc:
             logger.warning("[%s] clip event lỗi: %s", self.cam.slug, exc)
+        finally:
+            if proc is not None:
+                _kill_proc(proc)
+                with contextlib.suppress(Exception):
+                    await proc.wait()
 
     # ---------- lifecycle ----------
 
@@ -139,6 +163,10 @@ class CameraRecorder:
 
     async def stop(self) -> None:
         self._stopping = True
+        # kill ffmpeg TRƯỚC khi cancel task, nếu không tiến trình sẽ bị leak
+        # và giữ phiên RTSP của camera
+        if self._proc and self._proc.returncode is None:
+            _kill_proc(self._proc)
         if self._task and not self._task.done():
             self._task.cancel()
             try:

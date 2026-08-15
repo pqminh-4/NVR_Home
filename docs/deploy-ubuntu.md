@@ -131,7 +131,17 @@ docker compose restart nvr
 - Ghi hình + snapshots nằm trong `storage/` — nâng cấp app **không mất dữ liệu**.
 - Chính sách xoá file cũ đặt trong app: **Cài đặt → Lưu trữ & AI**.
 
-## 8. Sự cố thường gặp trên Ubuntu
+## 8. Camera ở VLAN / dải mạng khác
+
+App **không lọc IP** theo dải mạng — camera ở VLAN khác hoạt động bình thường miễn là:
+
+- Router/switch tầng 3 **định tuyến giữa các VLAN** và **cho phép TCP 554** (RTSP) + port HTTP của camera,
+- Kiểm tra nhanh từ máy chủ: `ping <IP-camera>` và `curl -v telnet://<IP-camera>:554` (Ctrl+C thoát khi thấy "Connected").
+
+Nếu ping thông mà nút **Kiểm tra** trong app vẫn báo `timeout` → firewall chặn phía VLAN camera;
+báo `401 Unauthorized` → sai mật khẩu RTSP; **kết nối được nhưng không có track video** → sai đường dẫn stream (xem bảng dưới).
+
+## 9. Sự cố thường gặp trên Ubuntu
 
 | Triệu chứng | Xử lý |
 |---|---|
@@ -139,4 +149,8 @@ docker compose restart nvr
 | Live view không chạy khi ở ngoài Tailscale | kiểm tra `go2rtc_public_url` (mục 5) |
 | ffmpeg ghi liên tục chết/khởi động lại | xem lỗi trong Cài đặt → camera (thường sai URL/pass RTSP) |
 | Camera Hikvision báo 401 | tạo user riêng cho RTSP trong camera, phân quyền "remote: monitor" |
+| Kết nối được nhưng stream không có track video | sai đường dẫn RTSP cho model camera: Hikvision `/Streaming/Channels/101`, Dahua `/cam/realmonitor?channel=1&subtype=0`, Ezviz `/ch1/main` hoặc `/h264_stream1` |
+| Camera Ezviz không kết nối được | bật RTSP trong app Ezviz (LAN Live View → Local Service Settings), mật khẩu RTSP = **mã verification code in hoa trên nhãn camera**, user `admin` |
+| Camera khác VLAN không kết nối được | xem mục 8 ở trên — gần như luôn là đường dẫn/mật khẩu RTSP, không phải định tuyến |
+| Live view lỗi mà ghi hình vẫn chạy | nhiều camera (vd Ezviz) **giới hạn 2 phiên RTSP đồng thời** — app thiết kế recorder dùng 1 phiên, mọi dịch vụ khác (detector, live, snapshot) dùng chung phiên go2rtc; đừng mở thêm trình xem RTSP ngoài app vào cùng camera |
 | Quên mật khẩu admin | `rm storage/db/nvr.db && docker compose restart` (mất cấu hình camera, đặt lại từ .env) |

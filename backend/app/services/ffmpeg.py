@@ -53,10 +53,11 @@ async def probe(url: str) -> dict:
             "video": {"codec": "rawvideo", "width": 1280, "height": 720, "fps": 10},
             "audio": {"codec": "pcm_s16le"},
         }
-    code, out = await run([
-        "ffprobe", "-v", "error", "-print_format", "json",
-        "-show_streams", "-show_format", url,
-    ], timeout=15)
+    args = ["ffprobe", "-v", "error", "-print_format", "json", "-show_streams", "-show_format"]
+    if url.lower().startswith("rtsp"):
+        args += ["-rtsp_transport", "tcp"]
+    args.append(url)
+    code, out = await run(args, timeout=15)
     if code != 0:
         last = [l for l in out.splitlines() if l.strip()][-3:]
         return {"ok": False, "error": " | ".join(last) or f"exit {code}"}
@@ -64,10 +65,24 @@ async def probe(url: str) -> dict:
         data = json.loads(out or "{}")
     except json.JSONDecodeError:
         return {"ok": False, "error": "Không đọc được ffprobe output"}
-    video = next((s for s in data.get("streams", []) if s.get("codec_type") == "video"), None)
-    audio = next((s for s in data.get("streams", []) if s.get("codec_type") == "audio"), None)
+    streams = data.get("streams", [])
+    video = next((s for s in streams if s.get("codec_type") == "video"), None)
+    audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
     if not video:
-        return {"ok": False, "error": "Không tìm thấy track video"}
+        # Kết nối RTSP đã thành công nhưng stream không có video — gần như luôn là
+        # sai đường dẫn/kiến trúc stream cho model camera (không phải lỗi mạng).
+        found = ", ".join(f"{s.get('codec_type')}({s.get('codec_name') or '?'})" for s in streams)
+        return {
+            "ok": False,
+            "error": (
+                "Kết nối được camera nhưng stream không có track video"
+                + (f" (chỉ có: {found})" if found else " (không có track nào)")
+                + ". Kiểm tra đường dẫn RTSP cho đúng model: Ezviz dùng /ch1/main"
+                " hoặc /h264_stream1 (mật khẩu = mã verification code in hoa trên nhãn camera),"
+                " Hikvision dùng /Streaming/Channels/101,"
+                " Dahua dùng /cam/realmonitor?channel=1&subtype=0"
+            ),
+        }
     fps_parts = str(video.get("avg_frame_rate", "10/1")).split("/")
     try:
         fps = round(int(fps_parts[0]) / int(fps_parts[1]), 2) if len(fps_parts) == 2 and int(fps_parts[1]) else 10

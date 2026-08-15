@@ -13,6 +13,14 @@ from ..models import Camera
 logger = logging.getLogger("nvr.go2rtc")
 
 
+def _tcp_source(url: str) -> str:
+    """Ép go2rtc kéo RTSP qua TCP — nhiều camera (vd Ezviz) chỉ chấp nhận TCP
+    và router thường không chuyển UDP giữa các VLAN."""
+    if url.startswith("rtsp") and "#" not in url:
+        return f"{url}#transport=tcp"
+    return url
+
+
 class Go2RTC:
     def __init__(self, base_url: str | None = None):
         self.base = (base_url or settings.go2rtc_url).rstrip("/")
@@ -21,25 +29,40 @@ class Go2RTC:
         """stream name -> url nguồn cần đăng ký trên go2rtc."""
         streams: dict[str, str] = {}
         if cam.url_main and cam.url_main != "demo":
-            streams[cam.slug] = cam.url_main
+            streams[cam.slug] = _tcp_source(cam.url_main)
         if cam.url_sub and cam.url_sub not in ("demo", cam.url_main):
-            streams[f"{cam.slug}_sub"] = cam.url_sub
+            streams[f"{cam.slug}_sub"] = _tcp_source(cam.url_sub)
         return streams
 
     async def sync_cameras(self) -> None:
-        """Đăng ký mọi camera đang bật lên go2rtc (PUT /api/streams)."""
+        """Đăng ký mọi camera đang bật lên go2rtc.
+
+        API của go2rtc nhận tham số qua query string:
+        PUT /api/streams?name=<ten>&src=<url> — body JSON bị bỏ qua.
+        """
         with Session(engine) as session:
             cams = session.query(Camera).where(Camera.enabled == True).all()  # noqa: E712
             wanted: dict[str, str] = {}
             for cam in cams:
                 wanted.update(self._names(cam))
-        if not wanted:
-            return
         try:
             async with httpx.AsyncClient(timeout=8) as client:
+                # gỡ stream go2rtc đang giữ mà không còn trong danh sách (camera bị xoá/đổi tên)
+                try:
+                    resp = await client.get(f"{self.base}/api/streams")
+                    if resp.status_code < 400:
+                        for name in resp.json():
+                            if name not in wanted:
+                                await client.delete(
+                                    f"{self.base}/api/streams", params={"src": name}
+                                )
+                except Exception:
+                    pass
+                if not wanted:
+                    return
                 for name, url in wanted.items():
                     resp = await client.put(
-                        f"{self.base}/api/streams", json={name: url}
+                        f"{self.base}/api/streams", params={"name": name, "src": url}
                     )
                     if resp.status_code < 400:
                         logger.info("go2rtc: đã thêm stream %s", name)
@@ -50,6 +73,17 @@ class Go2RTC:
                         )
         except Exception as exc:
             logger.warning("go2rtc không khả dụng (%s) — dùng URL camera trực tiếp", exc)
+
+    async def fetch_frame(self, name: str) -> bytes | None:
+        """Chụp 1 frame JPEG từ stream go2rtc (không mở thêm phiên RTSP vào camera)."""
+        try:
+            async with httpx.AsyncClient(timeout=12) as client:
+                resp = await client.get(f"{self.base}/api/frame.jpeg", params={"src": name})
+                if resp.status_code == 200:
+                    return resp.content
+        except Exception:
+            pass
+        return None
 
     async def statuses(self) -> dict[str, dict]:
         """Trạng thái các stream đang chạy trên go2rtc."""

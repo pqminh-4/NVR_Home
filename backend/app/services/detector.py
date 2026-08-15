@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
 from datetime import datetime, timezone
@@ -18,6 +19,9 @@ from . import settings_store
 from .go2rtc import go2rtc
 from .motion import MotionDetector
 from .yolo import YoloDetector
+
+# RTSP qua TCP như recorder/ffprobe — tránh UDP khi camera ở VLAN khác.
+os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;tcp")
 
 logger = logging.getLogger("nvr.detector")
 
@@ -90,17 +94,17 @@ class CameraDetector(threading.Thread):
     def _open_source(self):
         if self.demo:
             return DemoFrameSource()
-        urls = [f"{go2rtc.rtsp_base()}/{self.go2rtc_name}", self.detect_url]
-        for url in urls:
-            cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG)
-            cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 15000)
-            cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 10000)
-            cap.set(cv2.CAP_BUFFERSIZE, 1)
-            if cap.isOpened():
-                return cap
-            cap.release()
-        # trả về cap cuối (đã đóng) — vòng ngoài sẽ thử lại
-        cap = cv2.VideoCapture(urls[-1], cv2.CAP_FFMPEG)
+        # luôn đọc qua restream go2rtc: nhiều camera (vd Ezviz) giới hạn số phiên
+        # RTSP đồng thời — recorder đã dùng 1 phiên trực tiếp, go2rtc dùng phiên
+        # thứ 2 dành chung cho detector + live view + snapshot
+        url = f"{go2rtc.rtsp_base()}/{self.go2rtc_name}"
+        # timeout phải truyền vào lúc mở stream — set sau khi mở là vô tác dụng
+        params = [
+            cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 15000,
+            cv2.CAP_PROP_READ_TIMEOUT_MSEC, 10000,
+        ]
+        cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG, params)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # backend không hỗ trợ thì bỏ qua
         return cap
 
     # ---------- vòng lặp chính ----------
