@@ -30,7 +30,8 @@ def encoder_args(url: str) -> list[str]:
     return ["-c:v", "copy", "-c:a", "aac"]
 
 
-async def run(cmd: list[str], timeout: float = 20) -> tuple[int, str]:
+async def run(cmd: list[str], timeout: float = 20) -> tuple[int, str, str]:
+    """Chạy lệnh, trả về (returncode, stdout, stderr)."""
     proc = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
@@ -41,8 +42,8 @@ async def run(cmd: list[str], timeout: float = 20) -> tuple[int, str]:
     except asyncio.TimeoutError:
         proc.kill()
         await proc.wait()
-        return 124, "timeout"
-    return proc.returncode or 0, (err or b"").decode(errors="replace")
+        return 124, "", "timeout"
+    return proc.returncode or 0, (out or b"").decode(errors="replace"), (err or b"").decode(errors="replace")
 
 
 async def probe(url: str) -> dict:
@@ -57,18 +58,39 @@ async def probe(url: str) -> dict:
     if url.lower().startswith("rtsp"):
         args += ["-rtsp_transport", "tcp"]
     args.append(url)
-    code, out = await run(args, timeout=15)
+    code, stdout, stderr = await run(args, timeout=15)
     if code != 0:
-        last = [l for l in out.splitlines() if l.strip()][-3:]
+        # camera từ chối phiên RTSP (hết kết nối đồng thời) — báo rõ nguyên nhân
+        if "5XX" in stderr or "5xx" in stderr.lower() or "setup failed" in stderr.lower():
+            return {
+                "ok": False,
+                "error": (
+                    "Camera từ chối phiên RTSP (lỗi 5xx khi SETUP) — camera thường giới hạn"
+                    " số kết nối đồng thời và đã được app dùng hết (ghi hình + live)."
+                    " URL này vẫn có thể đúng: lưu camera rồi xem trạng thái ở danh sách."
+                ),
+            }
+        last = [l for l in stderr.splitlines() if l.strip()][-3:]
         return {"ok": False, "error": " | ".join(last) or f"exit {code}"}
     try:
-        data = json.loads(out or "{}")
+        data = json.loads(stdout or "{}")
     except json.JSONDecodeError:
         return {"ok": False, "error": "Không đọc được ffprobe output"}
     streams = data.get("streams", [])
     video = next((s for s in streams if s.get("codec_type") == "video"), None)
     audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
     if not video:
+        # ffprobe có thể exit 0 + JSON rỗng khi camera từ chối phiên RTSP
+        # (camera đang bận — nhiều camera vd Ezviz giới hạn 2 phiên đồng thời)
+        if "5XX" in stderr or "5xx" in stderr.lower() or "setup failed" in stderr.lower():
+            return {
+                "ok": False,
+                "error": (
+                    "Camera từ chối phiên RTSP (lỗi 5xx khi SETUP) — camera thường giới hạn"
+                    " số kết nối đồng thời và đã được app dùng hết (ghi hình + live)."
+                    " URL này vẫn có thể đúng: lưu camera rồi xem trạng thái ở danh sách."
+                ),
+            }
         # Kết nối RTSP đã thành công nhưng stream không có video — gần như luôn là
         # sai đường dẫn/kiến trúc stream cho model camera (không phải lỗi mạng).
         found = ", ".join(f"{s.get('codec_type')}({s.get('codec_name') or '?'})" for s in streams)
@@ -110,7 +132,7 @@ async def snapshot(url: str, out_path: Path, timeout: float = 15) -> bool:
         "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
         *inputs, "-map", "0:v:0", "-frames:v", "1", "-q:v", "3", str(out_path),
     ]
-    code, err = await run(cmd, timeout=timeout)
+    code, _stdout, err = await run(cmd, timeout=timeout)
     if code != 0 or not out_path.exists():
         logger.warning("snapshot thất bại (%s): %s", url, err.strip()[-200:])
         return False
