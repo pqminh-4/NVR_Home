@@ -5,20 +5,22 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
+import httpx
 import jwt
 import yaml
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
+from starlette.background import BackgroundTask
 
 from . import __version__
 from .api import auth, cameras, events, faces, recordings, settings_api, system
 from .config import settings, slugify
 from .db import engine, init_db
 from .models import Camera
-from .security import decode_token, ensure_admin, get_jwt_secret
+from .security import decode_token, ensure_admin, get_jwt_secret, require_auth
 from .services.detector import detection_manager
 from .services.faces import face_service
 from .services.go2rtc import go2rtc
@@ -127,6 +129,44 @@ async def ws_endpoint(ws: WebSocket, token: str = ""):
         pass
     finally:
         hub.disconnect(ws)
+
+
+# ---------- Proxy go2rtc (live view cùng origin — tránh CORS) ----------
+
+_HOP_HEADERS = {
+    "host", "authorization", "connection", "transfer-encoding",
+    "content-length", "accept-encoding", "cookie",
+}
+
+
+@app.api_route("/go2rtc/{path:path}", methods=["GET", "POST", "PUT", "DELETE"],
+               include_in_schema=False)
+async def go2rtc_proxy(path: str, request: Request, _user=Depends(require_auth)):
+    """Chuyển tiếp request sang go2rtc. Browser gọi /go2rtc/... cùng origin với app
+    (go2rtc trực tiếp ở cổng khác sẽ bị chặn CORS vì không trả ACAO header)."""
+    url = f"{go2rtc.base}/{path}"
+    if request.url.query:
+        url = f"{url}?{request.url.query}"
+    headers = {k: v for k, v in request.headers.items() if k.lower() not in _HOP_HEADERS}
+    client = httpx.AsyncClient(timeout=httpx.Timeout(15, read=None))
+    req = client.build_request(request.method, url, headers=headers,
+                               content=await request.body())
+    try:
+        upstream = await client.send(req, stream=True)
+    except httpx.HTTPError as exc:
+        await client.aclose()
+        return JSONResponse({"detail": f"go2rtc không khả dụng: {exc}"}, status_code=502)
+
+    async def close_upstream() -> None:
+        await upstream.aclose()
+        await client.aclose()
+
+    return StreamingResponse(
+        upstream.aiter_raw(),
+        status_code=upstream.status_code,
+        headers={k: v for k, v in upstream.headers.items() if k.lower() not in _HOP_HEADERS},
+        background=BackgroundTask(close_upstream),
+    )
 
 
 # ---------- Static frontend (build bằng `npm run build` trong frontend/) ----------

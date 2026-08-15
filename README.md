@@ -125,8 +125,9 @@ storage/                db + recordings + snapshots + models (không commit)
 
 ## Vấn đề thường gặp
 
-- **Live "Đang kết nối"**: kiểm tra go2rtc (`http://NAS:1984`), camera RTSP có
-  đúng không; trình duyệt cần hỗ trợ MSE (Chrome/Edge/Safari/Firefox đều OK).
+- **Live "Đang kết nối"**: live view đi qua proxy `/go2rtc` của app (cùng origin —
+  chỉ cần mở port 8080). Kiểm tra camera RTSP có đúng không, go2rtc đang chạy
+  (`docker logs nvr-go2rtc`); trình duyệt cần hỗ trợ MSE (Chrome/Edge/Safari/Firefox đều OK).
 - **Test camera báo "không có track video"**: kết nối tới camera **đã thành công** —
   vấn đề là đường dẫn RTSP sai cho model đó (xem bảng trên). Camera Ezviz phải bật
   RTSP trong app Ezviz (LAN Live View → Local Service Settings) và dùng **mã xác thực

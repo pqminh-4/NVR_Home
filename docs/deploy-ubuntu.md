@@ -106,10 +106,10 @@ sudo tailscale up
 ```
 
 Cài app Tailscale trên điện thoại → mở `http://<tên-homelab>:8080` từ bất kỳ đâu.
-Vào **Cài đặt → Hệ thống** đặt `go2rtc_public_url` thành
-`http://<tên-homelab>.<tailnet>.ts.net:1984` nếu muốn live view mượt khi ở ngoài
-(cần bật HTTPS trong Tailscale admin và thêm script sau vào máy chủ:
-`sudo tailscale serve --bg --https=443 http://localhost:8080`).
+Live view tự chạy qua proxy của app (`/go2rtc` cùng origin) — không cần mở thêm
+port 1984 hay cấu hình gì thêm. Nếu muốn dùng WebRTC (độ trễ thấp hơn) có thể bật
+HTTPS trong Tailscale admin và chạy
+`sudo tailscale serve --bg --https=443 http://localhost:8080`.
 
 ## 6. Bật nhận diện người quen (tùy chọn)
 
@@ -146,7 +146,7 @@ báo `401 Unauthorized` → sai mật khẩu RTSP; **kết nối được nhưng
 | Triệu chứng | Xử lý |
 |---|---|
 | Không mở được :8080 từ máy khác | `sudo ufw allow 8080/tcp && sudo ufw allow 1984/tcp && sudo ufw allow 8555/tcp` (nếu bật UFW) |
-| Live view không chạy khi ở ngoài Tailscale | kiểm tra `go2rtc_public_url` (mục 5) |
+| Live view không chạy khi ở ngoài Tailscale | live đã đi qua proxy của app (cùng origin, chỉ cần mở :8080) — kiểm tra camera RTSP và `docker logs nvr-home` |
 | ffmpeg ghi liên tục chết/khởi động lại | xem lỗi trong Cài đặt → camera (thường sai URL/pass RTSP) |
 | Camera Hikvision báo 401 | tạo user riêng cho RTSP trong camera, phân quyền "remote: monitor" |
 | Kết nối được nhưng stream không có track video | sai đường dẫn RTSP cho model camera: Hikvision `/Streaming/Channels/101`, Dahua `/cam/realmonitor?channel=1&subtype=0`, Ezviz `/ch1/main` hoặc `/h264_stream1` |

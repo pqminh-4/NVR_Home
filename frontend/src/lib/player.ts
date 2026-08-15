@@ -1,4 +1,5 @@
 /** MSE player cho go2rtc /api/stream.mp4 — độ trễ thấp, tự reconnect. */
+import { auth } from "./api";
 
 const FALLBACK_MIMES = [
   'video/mp4; codecs="avc1.64003E, mp4a.40.2"',
@@ -35,12 +36,16 @@ export function attachStream(
   const start = async () => {
     if (stopped) return;
     onStatus?.("connecting");
+    const headers: Record<string, string> = {};
+    const token = auth.getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
     try {
       // mime từ codec-info của go2rtc
       let mimes: string[] = [];
       try {
         const ci = await fetch(`${base}/api/codec-info?src=${encodeURIComponent(src)}`, {
           signal: abort.signal,
+          headers,
         }).then((r) => r.json());
         const arr = Array.isArray(ci) ? ci : [ci];
         const codecs = arr
@@ -89,6 +94,7 @@ export function attachStream(
 
       const resp = await fetch(`${base}/api/stream.mp4?src=${encodeURIComponent(src)}`, {
         signal: abort.signal,
+        headers,
       });
       if (!resp.ok || !resp.body) throw new Error(`stream.mp4 HTTP ${resp.status}`);
       const reader = resp.body.getReader();

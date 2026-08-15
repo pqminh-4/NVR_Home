@@ -56,11 +56,10 @@ export const api = {
   del: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
 
-/** URL go2rtc để lấy stream live. */
-export function go2rtcBase(systemGo2rtcUrl?: string): string {
+/** URL go2rtc để lấy stream live — đi qua proxy /go2rtc của backend
+ * (cùng origin với app nên không bị CORS; dev dùng proxy của Vite). */
+export function go2rtcBase(_systemGo2rtcUrl?: string): string {
   const envUrl = import.meta.env.VITE_GO2RTC_URL as string | undefined;
   if (envUrl) return envUrl;
-  if (import.meta.env.DEV) return "/go2rtc";
-  if (systemGo2rtcUrl && systemGo2rtcUrl !== "") return systemGo2rtcUrl;
-  return `http://${window.location.hostname}:1984`;
+  return "/go2rtc";
 }
