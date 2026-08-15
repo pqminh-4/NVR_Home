@@ -1,0 +1,35 @@
+services:
+  nvr:
+    build: .
+    image: nvr-home:latest
+    container_name: nvr-home
+    restart: unless-stopped
+    ports:
+      - "8080:8000"           # Web app + API
+    env_file: .env
+    environment:
+      STORAGE_DIR: /data
+      CONFIG_DIR: /config
+      GO2RTC_URL: http://go2rtc:1984
+      GO2RTC_RTSP: rtsp://go2rtc:8554
+      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+    volumes:
+      - ./storage:/data       # DB + ghi hình + snapshots (nên trỏ vào ổ lớn của NAS)
+      - ./config:/config
+    depends_on:
+      - go2rtc
+    # Cho phép container tự nhận DNS của docker network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  go2rtc:
+    image: alexxit/go2rtc:latest
+    container_name: nvr-go2rtc
+    restart: unless-stopped
+    ports:
+      - "1984:1984"           # API + WebRTC/MSE signaling
+      - "8554:8554"           # RTSP restream nội bộ
+      - "8555:8555"           # WebRTC
+      - "8555:8555/udp"
+    volumes:
+      - ./config/go2rtc.yaml:/config/go2rtc.yaml

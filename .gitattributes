@@ -1,0 +1,7 @@
+# Chuẩn LF cho script/cấu hình — bắt buộc để .sh chạy đúng trên Ubuntu
+* text=auto
+*.sh text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+Dockerfile text eol=lf

@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============ Design tokens ============ */
+:root {
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: 220 18% 6%;       /* #0b0d12 */
+  --foreground: 220 14% 92%;
+  --card: 220 16% 10%;            /* #14161d */
+  --card-foreground: 220 14% 92%;
+  --muted: 220 13% 17%;
+  --muted-foreground: 220 9% 60%;
+  --border: 220 13% 18%;
+  --input: 220 13% 15%;
+  --ring: 224 100% 66%;
+  --primary: 224 100% 66%;        /* #4f7cff */
+  --primary-foreground: 0 0% 100%;
+  --destructive: 0 72% 56%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 145 65% 45%;
+  --warning: 38 92% 55%;
+}
+
+html:not(.dark) {
+  --background: 220 20% 97%;
+  --foreground: 220 16% 14%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 16% 14%;
+  --muted: 220 14% 93%;
+  --muted-foreground: 220 9% 44%;
+  --border: 220 13% 88%;
+  --input: 220 13% 91%;
+  --ring: 224 100% 60%;
+  --primary: 224 100% 58%;
+  --primary-foreground: 0 0% 100%;
+  --destructive: 0 72% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 145 65% 40%;
+  --warning: 38 92% 48%;
+}
+
+html, body, #root { height: 100%; }
+
+body {
+  @apply bg-background text-foreground antialiased;
+  overscroll-behavior-y: none;
+}
+
+/* Scrollbar mảnh, hiện đại */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted)) transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track { background: transparent; }
+
+@layer components {
+  .glass {
+    @apply bg-card/70 backdrop-blur-xl border border-border/70;
+  }
+  .card-surface {
+    @apply bg-card border border-border rounded-lg shadow-soft;
+  }
+  .input-base {
+    @apply w-full rounded-md border border-border bg-input px-3 py-2 text-sm
+      placeholder:text-muted-foreground/60 outline-none transition
+      focus:border-primary/70 focus:ring-2 focus:ring-primary/25 disabled:opacity-50;
+  }
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-muted;
+  }
+  .skeleton::after {
+    content: "";
+    @apply absolute inset-0 -translate-x-full animate-shimmer;
+    background: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.06), transparent);
+  }
+}
+
+/* video tile: chữ overlay có bóng mềm */
+.tile-overlay-text {
+  text-shadow: 0 1px 4px rgb(0 0 0 / 0.8);
+}
+
+/* Ẩn nút fullscreen mặc định của video (dùng overlay riêng) */
+video::-webkit-media-controls { display: none !important; }

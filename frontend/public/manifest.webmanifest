@@ -1,0 +1,17 @@
+{
+  "name": "NVR_Home",
+  "short_name": "NVR Home",
+  "description": "Quản lý camera tại nhà",
+  "start_url": "/live",
+  "display": "standalone",
+  "background_color": "#0b0d12",
+  "theme_color": "#0b0d12",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

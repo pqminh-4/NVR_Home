@@ -1,0 +1,10 @@
+# go2rtc — lấy stream từ camera, phục vụ live view WebRTC/MSE
+# và restream RTSP nội bộ cho recorder/detector (1 kết nối tới mỗi camera)
+api:
+  listen: ":1984"
+rtsp:
+  listen: ":8554"
+webrtc:
+  listen: ":8555"
+log:
+  level: info

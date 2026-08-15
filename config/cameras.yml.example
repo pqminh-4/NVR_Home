@@ -1,0 +1,23 @@
+# Danh sách camera khởi tạo — dùng lần đầu khởi động khi DB còn trống.
+# Sau đó camera được quản lý trực tiếp trong app (trang Cài đặt).
+#
+# url_main: stream chính (độ phân giải cao) — dùng để ghi hình + xem live
+# url_sub : stream phụ (thường 640x360/704x480) — dùng cho AI detect (nhẹ CPU)
+#           nếu camera không có sub stream, bỏ trống -> dùng url_main
+#
+# Ví dụ URL phổ biến:
+#   Hikvision: rtsp://user:pass@IP:554/Streaming/Channels/101   (101=main, 102=sub)
+#   Dahua    : rtsp://user:pass@IP:554/cam/realmonitor?channel=1&subtype=0  (subtype=1 là sub)
+#   Tapo     : rtsp://user:pass@IP:554/stream1
+#   Generic  : rtsp://user:pass@IP:554/
+
+cameras:
+  - name: Camera demo
+    url_main: demo
+    url_sub: demo
+    record_mode: continuous   # continuous | motion | off
+    detect_enabled: true
+    detect_classes: person,car,cat,dog
+    detect_fps: 2
+    detect_threshold: 0.55
+    zones: []                 # danh sách vùng quan tâm [[x1,y1,x2,y2],...] toạ độ 0..1

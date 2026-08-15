@@ -1,0 +1,3 @@
+# Nhận diện khuôn mặt (InsightFace buffalo_l) — tách riêng vì cài nặng
+# Sau khi cài, restart backend → trang "Người quen" tự bật
+insightface>=0.7.3
