@@ -26,12 +26,25 @@ thông báo Telegram/Pushover — tất cả trong 2 container Docker.
 curl -fsSL https://raw.githubusercontent.com/pqminh-4/NVR_Home/main/scripts/remote-install.sh | bash
 ```
 
-Script tự cài Docker (nếu thiếu), tải mã nguồn, tạo `.env` + mật khẩu, build và
-khởi động. Muốn ghi hình vào ổ lớn, thêm đường dẫn cuối lệnh:
+Muốn ghi hình vào ổ lớn, thêm đường dẫn cuối lệnh:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pqminh-4/NVR_Home/main/scripts/remote-install.sh | bash -s -- /mnt/data/nvr
 ```
+
+**Máy Ubuntu chưa có curl / wget?** (Ubuntu Server mới thường thiếu) — chọn một:
+
+```bash
+# Dùng wget nếu có:
+wget -qO- https://raw.githubusercontent.com/pqminh-4/NVR_Home/main/scripts/remote-install.sh | bash
+
+# Chỉ có apt (luôn có sẵn) — cài curl rồi chạy:
+sudo apt-get update && sudo apt-get install -y curl && \
+  curl -fsSL https://raw.githubusercontent.com/pqminh-4/NVR_Home/main/scripts/remote-install.sh | bash
+```
+
+Script tự cài đầy đủ phần bổ trợ còn thiếu (git, curl, ca-certificates, Docker,
+docker compose) bằng apt sẵn có của Ubuntu — chạy trên máy mới toanh cũng được.
 
 **Trên máy đã có mã nguồn:**
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NVR_Home — script cài đặt tự động trên Ubuntu
+# NVR_Home — script cài đặt tự động trên Ubuntu/Debian
 # Cách chạy:  bash scripts/install-ubuntu.sh [thư-mục-ổ-lớn]
 # VD:         bash scripts/install-ubuntu.sh /mnt/data/nvr-storage
 set -euo pipefail
@@ -9,27 +9,43 @@ say()  { echo -e "${GREEN}[NVR]${NC} $1"; }
 warn() { echo -e "${YELLOW}[NVR]${NC} $1"; }
 err()  { echo -e "${RED}[NVR LỖI]${NC} $1"; exit 1; }
 
+# sudo chỉ khi không phải root
+if [ "$(id -u)" = "0" ]; then SUDO=""; else SUDO="sudo"; fi
+
 cd "$(dirname "$0")/.."
 PROJECT_DIR="$(pwd)"
 STORAGE_DIR="${1:-$PROJECT_DIR/storage}"
 
 say "Cài NVR_Home từ $PROJECT_DIR (ghi hình vào: $STORAGE_DIR)"
 
-# ---- 1. Docker ----
+# ---- 1. Phần bổ trợ nền: curl + ca-certificates (apt có sẵn trên mọi Ubuntu) ----
+PKGS=""
+command -v curl >/dev/null 2>&1 || PKGS="$PKGS curl"
+command -v git  >/dev/null 2>&1 || PKGS="$PKGS git"
+if [ -n "$PKGS" ]; then
+  say "Cài phần bổ trợ:$PKGS ..."
+  $SUDO apt-get update -qq
+  $SUDO apt-get install -y -qq $PKGS ca-certificates
+fi
+
+# ---- 2. Docker ----
 if ! command -v docker >/dev/null 2>&1; then
   say "Đang cài Docker..."
-  curl -fsSL https://get.docker.com | sudo sh
-  sudo usermod -aG docker "$USER" || true
+  curl -fsSL https://get.docker.com | $SUDO sh
+  [ -n "$SUDO" ] && sudo usermod -aG docker "$USER" || true
   warn "Đã thêm user '$USER' vào nhóm docker — nếu lệnh docker sau đó báo quyền, chạy 'newgrp docker' rồi chạy lại script."
 fi
 command -v docker >/dev/null 2>&1 || err "Docker chưa cài xong — mở terminal mới chạy lại script."
-docker compose version >/dev/null 2>&1 || err "Thiếu docker compose plugin — cài: sudo apt install docker-compose-plugin"
+docker compose version >/dev/null 2>&1 || {
+  say "Cài docker compose plugin..."
+  $SUDO apt-get update -qq && $SUDO apt-get install -y -qq docker-compose-plugin \
+    || err "Thiếu docker compose plugin — cài thủ công: sudo apt install docker-compose-plugin"
+}
 if ! docker info >/dev/null 2>&1; then
-  sg docker -c "true" 2>/dev/null || true
-  docker info >/dev/null 2>&1 || err "Không gọi được Docker daemon. Thử: newgrp docker && bash $0"
+  err "Không gọi được Docker daemon. Thử: newgrp docker && bash $0"
 fi
 
-# ---- 2. Ổ lưu trữ ----
+# ---- 3. Ổ lưu trữ ----
 if [[ "$STORAGE_DIR" != "$PROJECT_DIR/storage" ]]; then
   mkdir -p "$STORAGE_DIR"
   if [[ -d "$PROJECT_DIR/storage" && ! -L "$PROJECT_DIR/storage" ]]; then
@@ -42,7 +58,7 @@ if [[ "$STORAGE_DIR" != "$PROJECT_DIR/storage" ]]; then
 fi
 mkdir -p storage
 
-# ---- 3. .env ----
+# ---- 4. .env ----
 if [[ ! -f .env ]]; then
   cp .env.example .env
   PASS="$(head -c 12 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 12)"
@@ -53,7 +69,7 @@ else
   say "Đã có .env — giữ nguyên."
 fi
 
-# ---- 4. Build & chạy ----
+# ---- 5. Build & chạy ----
 say "Build và khởi động (lần đầu ~2-3 phút)..."
 docker compose up -d --build
 sleep 8
