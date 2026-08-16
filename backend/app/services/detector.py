@@ -18,6 +18,7 @@ from ..ws import hub
 from . import settings_store
 from .go2rtc import go2rtc
 from .motion import MotionDetector
+from .resolution import save_res
 from .yolo import YoloDetector
 
 # RTSP qua TCP như recorder/ffprobe — tránh UDP khi camera ở VLAN khác.
@@ -85,6 +86,9 @@ class CameraDetector(threading.Thread):
         self.threshold = float(cam.detect_threshold or 0.55)
         self.zones = [tuple(float(v) for v in z) for z in (cam.zones or []) if len(z) == 4]
         self.motion_record = cam.record_mode == "motion"
+        # nguồn detect là sub (nếu có) — độ phân giải đọc được lưu vào field tương ứng
+        self.res_field = "res_sub" if (cam.url_sub and cam.url_sub != cam.url_main) else "res_main"
+        self._last_res = ""
         self._stopped = threading.Event()
         self._states: dict[str, _ClassState] = {}
         self._last_status_push = 0.0
@@ -136,6 +140,10 @@ class CameraDetector(threading.Thread):
                 continue
             now = time.monotonic()
             self._push_heartbeat()
+            h, w = frame.shape[:2]
+            if f"{w}x{h}" != self._last_res:
+                self._last_res = f"{w}x{h}"
+                save_res(self.cam_id, self.res_field, self._last_res)
             if now >= next_process:
                 next_process = now + interval
                 self._process_frame(frame, motion)

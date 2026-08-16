@@ -27,6 +27,25 @@ def init_db() -> None:
     from . import models  # noqa: F401
 
     SQLModel.metadata.create_all(engine)
+    _migrate()
+
+
+# Cột thêm sau này cho bảng đã tồn tại — create_all không ALTER bảng cũ
+_MIGRATIONS: dict[str, dict[str, str]] = {
+    "camera": {
+        "res_main": "VARCHAR NOT NULL DEFAULT ''",
+        "res_sub": "VARCHAR NOT NULL DEFAULT ''",
+    },
+}
+
+
+def _migrate() -> None:
+    with engine.begin() as conn:
+        for table, columns in _MIGRATIONS.items():
+            existing = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")}
+            for name, ddl in columns.items():
+                if name not in existing:
+                    conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
 
 
 def get_session() -> Session:

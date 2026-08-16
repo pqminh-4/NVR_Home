@@ -63,6 +63,7 @@ def _cam_dict(cam: Camera) -> dict:
         "onvif_user": cam.onvif_user,
         "status": cam.status, "last_frame_at": iso_utc(cam.last_frame_at),
         "last_error": cam.last_error,
+        "res_main": cam.res_main or "", "res_sub": cam.res_sub or "",
         "has_ptz": bool(cam.ptz_enabled and cam.onvif_url),
     }
 

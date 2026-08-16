@@ -10,7 +10,7 @@ thông báo Telegram/Pushover — tất cả trong 2 container Docker.
 
 | Nhóm | Chi tiết |
 |---|---|
-| **Trực tiếp** | Grid 1/4/6/9/16, streaming MSE độ trễ <1–2s qua go2rtc, âm thanh, PTZ (ONVIF), fullscreen, chụp ảnh |
+| **Trực tiếp** | Grid 1/4/6/9/16, streaming MSE độ trễ <1–2s qua go2rtc, âm thanh, PTZ (ONVIF), fullscreen, chụp ảnh, tự nhận độ phân giải từng camera (hiện ở danh sách & live view) |
 | **Ghi hình** | Liên tục 24/7 hoặc chỉ khi có sự kiện (mỗi camera một chế độ), file MP4 10s/segment, tự xoá theo số ngày / giới hạn dung lượng |
 | **Phát lại** | Timeline heat-strip 24h, vạch màu theo loại event, click-để-tua, phím tắt (Space, ←/→), tải clip, lưu khung hình |
 | **AI** | YOLOv10n/v8n ONNX (CPU) phát hiện person/car/cat/dog, chọn class + vẽ vùng quan tâm từng camera, ngưỡng tin cậy, chống báo nhầm |

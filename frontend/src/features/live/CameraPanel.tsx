@@ -85,6 +85,11 @@ export function CameraPanel({ cam, onClose }: { cam: Camera | null; onClose: () 
             {cam.record_mode === "continuous" ? "Ghi 24/7" : cam.record_mode === "motion" ? "Ghi khi có sự kiện" : "Không ghi"}
           </Badge>
           {cam.detect_enabled && <Badge variant="default">AI detect</Badge>}
+          {cam.res_main && (
+            <Badge variant="neutral" title={cam.res_sub && cam.res_sub !== cam.res_main ? `Stream phụ (AI): ${cam.res_sub}` : undefined}>
+              {cam.res_main}
+            </Badge>
+          )}
         </div>
 
         {cam.last_error && (

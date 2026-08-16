@@ -108,6 +108,11 @@ export const CameraTile = memo(function CameraTile({
           <span className="tile-overlay-text text-white text-xs font-medium truncate drop-shadow">
             {cam.name}
           </span>
+          {cam.res_main && (
+            <span className="tile-overlay-text text-white/50 text-[10px] font-mono shrink-0">
+              {cam.res_main}
+            </span>
+          )}
         </div>
         <span className="tile-overlay-text font-mono text-[11px] text-white/90 tabular-nums">
           {clock.toLocaleTimeString("vi-VN")}

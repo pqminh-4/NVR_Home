@@ -51,6 +51,10 @@ class Camera(SQLModel, table=True):
     last_frame_at: Optional[datetime] = None
     last_error: str = ""
 
+    # Độ phân giải tự nhận diện (vd "1920x1080") — cập nhật bởi resolution service
+    res_main: str = ""
+    res_sub: str = ""
+
     @property
     def detect_url(self) -> str:
         """Nguồn cho detector: ưu tiên sub stream."""

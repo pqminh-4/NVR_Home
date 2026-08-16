@@ -17,6 +17,8 @@ export interface Camera {
   status: "online" | "offline" | "error";
   last_frame_at: string | null;
   last_error: string;
+  res_main: string; // độ phân giải tự nhận diện, vd "1920x1080" (rỗng nếu chưa biết)
+  res_sub: string;
   has_ptz: boolean;
 }
 

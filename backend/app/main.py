@@ -25,6 +25,7 @@ from .services.detector import detection_manager
 from .services.faces import face_service
 from .services.go2rtc import go2rtc
 from .services.recorder import recording_manager
+from .services.resolution import monitor_loop as resolution_loop
 from .ws import hub
 
 logger = logging.getLogger("nvr.main")
@@ -84,8 +85,10 @@ async def lifespan(app: FastAPI):
     detection_manager.start_all()
     if face_service.available():
         face_service.rebuild_index()
+    res_task = asyncio.create_task(resolution_loop())
     logger.info("NVR_Home %s đã khởi động", __version__)
     yield
+    res_task.cancel()
     detection_manager.stop_all()
     await recording_manager.stop_all()
     logger.info("NVR_Home đã dừng")

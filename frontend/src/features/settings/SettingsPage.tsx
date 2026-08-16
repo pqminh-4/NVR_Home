@@ -65,6 +65,11 @@ function CamerasTab() {
           <Badge variant={c.record_mode === "off" ? "neutral" : c.record_mode === "motion" ? "warning" : "success"}>
             {c.record_mode === "continuous" ? "24/7" : c.record_mode === "motion" ? "sự kiện" : "không ghi"}
           </Badge>
+          {c.res_main && (
+            <Badge variant="neutral" title={c.res_sub && c.res_sub !== c.res_main ? `Stream phụ (AI): ${c.res_sub}` : undefined}>
+              {c.res_main}
+            </Badge>
+          )}
           {c.detect_enabled && <Badge variant="default">AI</Badge>}
           <Button variant="ghost" size="icon" onClick={() => { setEditing(c); setFormOpen(true); }} title="Sửa">
             <Pencil className="h-4 w-4" />
